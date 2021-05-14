@@ -15,4 +15,4 @@ require (
 	gonum.org/v1/gonum v0.8.2
 )
 
-replace gonum.org/v1/plot@v0.9.0 => /github.com/kenje4090/plot
+replace gonum.org/v1/plot@v0.9.0 => /github.com/kenje4090/plot@v0.9.1-0.20210514090133-aa5636a74dcd

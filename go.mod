@@ -1,5 +1,7 @@
 module github.com/kenje4090/plot
 
+replace gonum.org/v1/plot => ../../../github.com/kenje4090/plot
+
 go 1.14
 
 require (
@@ -14,5 +16,3 @@ require (
 	gonum.org/v1/gonum v0.8.2
 	gonum.org/v1/plot v0.9.0
 )
-
-replace gonum.org/v1/plot@v0.9.0 => /github.com/kenje4090/plot

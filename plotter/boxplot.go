@@ -43,6 +43,9 @@ type fiveStatPlot struct {
 
 	// Outside are the indices of Vs for the outside points.
 	Outside []int
+
+	// Mean Value
+	Mean float64
 }
 
 // BoxPlot implements the Plotter interface, drawing
@@ -173,6 +176,14 @@ func newFiveStat(w vg.Length, loc float64, values Valuer) (fiveStatPlot, error) 
 		}
 	}
 
+	// Calculate mean value
+	total := 0.0
+	for _, val := range sorted {
+		total += val
+	}
+
+	b.Mean = total / float64(len(sorted))
+
 	return b, nil
 }
 
@@ -191,7 +202,131 @@ func median(vs Values) float64 {
 }
 
 // Plot draws the BoxPlot on Canvas c and Plot plt.
+// Also have color gradient for mean.
 func (b *BoxPlot) Plot(c draw.Canvas, plt *plot.Plot) {
+	if b.Horizontal {
+		b := &horizBoxPlot{b}
+		b.Plot(c, plt)
+		return
+	}
+
+	trX, trY := plt.Transforms(&c)
+	x := trX(b.Location)
+	if !c.ContainsX(x) {
+		return
+	}
+	x += b.Offset
+
+	med := trY(b.Median)
+	q1 := trY(b.Quartile1)
+	q3 := trY(b.Quartile3)
+	aLow := trY(b.AdjLow)
+	aHigh := trY(b.AdjHigh)
+	mean := trY(b.Mean)
+
+	pts := []vg.Point{
+		{X: x - b.Width/2, Y: q1},
+		{X: x - b.Width/2, Y: q3},
+		{X: x + b.Width/2, Y: q3},
+		{X: x + b.Width/2, Y: q1},
+		{X: x - b.Width/2 - b.BoxStyle.Width/2, Y: q1},
+	}
+
+	// ptsChanged := []vg.Point{
+	// 	{X: x - b.Width/2, Y: aLow},
+	// 	{X: x - b.Width/2, Y: aHigh},
+	// 	{X: x + b.Width/2, Y: aHigh},
+	// 	{X: x + b.Width/2, Y: aLow},
+	// 	// {X: x - b.Width/2 - b.BoxStyle.Width/2, Y: q1},
+	// }
+	// ptsChanged := []vg.Point{
+	// 	{X: x - b.Width/2, Y: q1 + 5},
+	// 	{X: x - b.Width/2, Y: q3 - 5},
+	// 	{X: x + b.Width/2, Y: q3 - 5},
+	// 	{X: x + b.Width/2, Y: q1 + 5},
+	// 	// {X: x - b.Width/2 - b.BoxStyle.Width/2, Y: q1},
+	// }
+	// ptsNew := []vg.Point{
+	// 	{X: x - b.Width/2, Y: q1},
+	// 	{X: x - b.Width/2, Y: q3 + 4},
+	// 	{X: x + b.Width/2, Y: q3 + 4},
+	// 	{X: x + b.Width/2, Y: q1},
+	// 	// {X: x - b.Width/2 - b.BoxStyle.Width/2, Y: q1},
+	// }
+	box := c.ClipLinesY(pts)
+	// if b.FillColor != nil {
+	// c.FillPolygon(b.FillColor, c.ClipPolygonY(pts))
+	// ptsLen := len(pts)
+	// fmt.Printf("len=%v\n", ptsLen)
+	// halfLen := ptsLen / 2
+	// b.FillColor = color.RGBA{188, 127, 165, 1}
+	// b.FillColor = color.RGBA{127, 188, 165, 1}
+	// b.FillColor = color.RGBA{165, 188, 127, 1}
+	// c.FillPolygon(color.RGBA{165, 188, 127, 1}, c.ClipPolygonY(pts))
+	// fmt.Printf("unclipped=%v\n", pts)
+	// fmt.Printf("clipped=%v\n", c.ClipPolygonY(pts))
+	// newPts:=append(newPts,)
+	// c.FillPolygon(color.RGBA{127, 188, 165, 1}, c.ClipPolygonY(pts))
+	// c.FillPolygon(color.RGBA{255, 100, 100, 1}, c.ClipPolygonY(ptsChanged))
+	// c.FillPolygon(color.RGBA{188, 127, 165, 1}, c.ClipPolygonY(ptsNew))
+	// c.FillPolygon(color.RGBA{188, 127, 165, 1}, c.ClipPolygonY(pts[3:5]))
+	// }
+	c.StrokeLines(b.BoxStyle, box...)
+
+	medLine := c.ClipLinesY([]vg.Point{
+		{X: x - b.Width/2, Y: med},
+		{X: x + b.Width/2, Y: med},
+	})
+
+	c.StrokeLines(b.MedianStyle, medLine...)
+
+	// Mean dash line
+	meanLine := c.ClipLinesY([]vg.Point{
+		{X: x - b.Width/2, Y: mean},
+		{X: x + b.Width/2, Y: mean},
+	})
+	meanStyle := b.MedianStyle
+
+	meanStyle.Color = color.RGBA{255, 100, 100, 1}
+	c.StrokeLines(meanStyle, meanLine...)
+
+	// Test fill based on mean line
+	// Less red when farther from mean line
+	// fmt.Printf("quar3=%v\nquar1=%v\n", b.Quartile3, b.Quartile1)
+	// fmt.Printf("diff=%v", b.Quartile3-b.Quartile1)
+	// rangeV := b.Quartile3 - b.Quartile1
+	// for i := 0; i < rangeV; i++ {
+	// 	fmt.Printf("I VALUE=%v\n", i)
+	// 	// Color with lines
+	// 	cLine := c.ClipLinesY([]vg.Point{
+	// 		{X: x - b.Width/2, Y: trY(i)},
+	// 		{X: x + b.Width/2, Y: trY(i)},
+	// 	})
+	// 	cLineStyle := b.MedianStyle
+
+	// 	cLineStyle.Color = color.RGBA{255, 100, 100, 1}
+	// 	c.StrokeLines(cLineStyle, cLine...)
+	// }
+
+	cap := b.CapWidth / 2
+	whisks := c.ClipLinesY(
+		[]vg.Point{{X: x, Y: q3}, {X: x, Y: aHigh}},
+		[]vg.Point{{X: x - cap, Y: aHigh}, {X: x + cap, Y: aHigh}},
+		[]vg.Point{{X: x, Y: q1}, {X: x, Y: aLow}},
+		[]vg.Point{{X: x - cap, Y: aLow}, {X: x + cap, Y: aLow}},
+	)
+	c.StrokeLines(b.WhiskerStyle, whisks...)
+
+	for _, out := range b.Outside {
+		y := trY(b.Value(out))
+		if c.ContainsY(y) {
+			c.DrawGlyphNoClip(b.GlyphStyle, vg.Point{X: x, Y: y})
+		}
+	}
+}
+
+// Plot_Original draws the BoxPlot on Canvas c and Plot plt.
+func (b *BoxPlot) Plot_Original(c draw.Canvas, plt *plot.Plot) {
 	if b.Horizontal {
 		b := &horizBoxPlot{b}
 		b.Plot(c, plt)
@@ -352,6 +487,7 @@ func (b horizBoxPlot) Plot(c draw.Canvas, plt *plot.Plot) {
 	}
 	box := c.ClipLinesX(pts)
 	if b.FillColor != nil {
+
 		c.FillPolygon(b.FillColor, c.ClipPolygonX(pts))
 	}
 	c.StrokeLines(b.BoxStyle, box...)
